@@ -1,3 +1,7 @@
+## This fork implements ReXNet based U-Net with multiple scale outputs
+
+---
+
 ## ReXNet: Diminishing Representational Bottleneck on Convolutional Neural Network
 
 **Dongyoon Han, Sangdoo Yun, Byeongho Heo, and YoungJoon Yoo** | [Paper](https://arxiv.org/pdf/2007.00992.pdf) | [Pretrained Models](#pretrained)
