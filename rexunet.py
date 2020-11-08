@@ -35,21 +35,33 @@ class ReXUNet(nn.Module):
         self.conv3 = rexnet.features[7:9]
         self.conv4 = rexnet.features[9:15]
         self.conv5 = rexnet.features[15:-1]
-
-        self.decode_conv1 = LinearBottleneck(1280, 140, t=1, stride=1)
-        self.decode_conv2 = LinearBottleneck(140, 72, t=1, stride=1)
-        self.decode_conv3 = LinearBottleneck(72, 50, t=1, stride=1)
-        self.decode_conv4 = LinearBottleneck(50, 27, t=1, stride=1)
-        self.decode_conv5 = LinearBottleneck(27, 16, t=1, stride=1)
-        self.decode_conv6 = LinearBottleneck(16, 1, t=1, stride=1)
         
-        self.output_conv1 = nn.Conv2d(16, 1, 1, 1, 0)
-        self.output_conv2 = nn.Conv2d(27, 1, 1, 1, 0)
-        self.output_conv3 = nn.Conv2d(50, 1, 1, 1, 0)
-        self.output_conv4 = nn.Conv2d(72, 1, 1, 1, 0)
+        # self.decode_conv1 = LinearBottleneck(1280, 140, t=1, stride=1)
+        # self.decode_conv2 = LinearBottleneck(140, 72, t=1, stride=1)
+        # self.decode_conv3 = LinearBottleneck(72, 50, t=1, stride=1)
+        # self.decode_conv4 = LinearBottleneck(50, 27, t=1, stride=1)
+        # self.decode_conv5 = LinearBottleneck(27, 16, t=1, stride=1)
+        # self.decode_conv6 = LinearBottleneck(16, 1, t=1, stride=1)
+        self.decode_conv1 = nn.Sequential(nn.Conv2d(1280, 140, 3, stride=1, padding=1),
+                                          nn.ReLU(inplace=True),)
+        self.decode_conv2 = nn.Sequential(nn.Conv2d( 140,  72, 3, stride=1, padding=1),
+                                          nn.ReLU(inplace=True),)
+        self.decode_conv3 = nn.Sequential(nn.Conv2d(  72,  50, 3, stride=1, padding=1),
+                                          nn.ReLU(inplace=True),)
+        self.decode_conv4 = nn.Sequential(nn.Conv2d(  50,  27, 3, stride=1, padding=1),
+                                          nn.ReLU(inplace=True),)
+        self.decode_conv5 = nn.Sequential(nn.Conv2d(  27,  16, 3, stride=1, padding=1),
+                                          nn.ReLU(inplace=True),)
+        self.decode_conv6 = nn.Sequential(nn.Conv2d(  16,   1, 3, stride=1, padding=1),
+                                          nn.ReLU(inplace=True),)
+        
+        self.output_conv1 = nn.Conv2d( 16, 1, 1, 1, 0)
+        self.output_conv2 = nn.Conv2d( 27, 1, 1, 1, 0)
+        self.output_conv3 = nn.Conv2d( 50, 1, 1, 1, 0)
+        self.output_conv4 = nn.Conv2d( 72, 1, 1, 1, 0)
         self.output_conv5 = nn.Conv2d(140, 1, 1, 1, 0)                            
         
-        self.swish = Swish()
+        self.op_nonlin = nn.ReLU(inplace=True)#nn.Sigmoid() #Swish(inplace=True)
         
     def forward(self, x): # x = (3,64,64)
         x1 = self.conv0(x) # (16,32,32)
@@ -61,35 +73,34 @@ class ReXUNet(nn.Module):
 
         decode1 = self.decode_conv1(bottleneck)  # (140,2,2)
         decode1 = decode1 + x5
-        output5 = self.swish(self.output_conv5(decode1))
+        output5 = self.op_nonlin(self.output_conv5(decode1))
         
         decode2 = self.decode_conv2(decode1)
-        decode2 = F.interpolate(decode2, scale_factor=2, mode='bilinear', align_corners=False) # (72,4,4)
+        decode2 = F.interpolate(decode2, scale_factor=2, mode='bilinear') # (72,4,4)
         decode2 = decode2 + x4
-        output4 = self.swish(self.output_conv4(decode2))
+        output4 = self.op_nonlin(self.output_conv4(decode2))
 
         decode3 = self.decode_conv3(decode2)
-        decode3 = F.interpolate(decode3, scale_factor=2, mode='bilinear', align_corners=False) # (50,8,8)
+        decode3 = F.interpolate(decode3, scale_factor=2, mode='bilinear') # (50,8,8)
         decode3 = decode3 + x3
-        output3 = self.swish(self.output_conv3(decode3))
+        output3 = self.op_nonlin(self.output_conv3(decode3))
 
         decode4 = self.decode_conv4(decode3)
-        decode4 = F.interpolate(decode4, scale_factor=2, mode='bilinear', align_corners=False) # (27,16,16)
+        decode4 = F.interpolate(decode4, scale_factor=2, mode='bilinear') # (27,16,16)
         decode4 = decode4 + x2
-        output2 = self.swish(self.output_conv2(decode4))
+        output2 = self.op_nonlin(self.output_conv2(decode4))
 
         decode5 = self.decode_conv5(decode4)
-        decode5 = F.interpolate(decode5, scale_factor=2, mode='bilinear', align_corners=False) # (16,32,32)
+        decode5 = F.interpolate(decode5, scale_factor=2, mode='bilinear') # (16,32,32)
         decode5 = decode5 + x1
-        output1 = self.swish(self.output_conv1(decode5))
+        output1 = self.op_nonlin(self.output_conv1(decode5))
 
         output0 = self.decode_conv6(decode5)
-        output0 = F.interpolate(output0, scale_factor=2, mode='bilinear', align_corners=False) # (1,64,64)
-        output0 = self.swish(output0)
+        output0 = F.interpolate(output0, scale_factor=2, mode='bilinear') # (1,64,64)
+        output0 = self.op_nonlin(output0)
         
         return [output0, output1, output2, output3, output4, output5]
     
-
 class ReXDepth(ReXUNet):
     def __init__(self, scales=[0,1,2,3], pretrained_path:str=None):
         super(ReXDepth, self).__init__(pretrained=pretrained_path)
